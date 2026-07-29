@@ -154,23 +154,11 @@ async function initializeGemini(profile = 'interview', language = 'en-US') {
 }
 
 async function initializeLocal(profile = 'interview') {
-    const prefs = await storage.getPreferences();
-    const localLlmModel = prefs.localLlmModel || 'unsloth/Qwen3.5-4B-GGUF:Q4_K_M';
-    const whisperModel = prefs.whisperModel || 'tiny.en';
-    const customPrompt = prefs.customPrompt || '';
-
-    const success = await ipcRenderer.invoke('initialize-local', localLlmModel, whisperModel, profile, customPrompt);
-    if (success) {
-        cheatingDaddy.setStatus('Local AI Live');
-        return true;
-    } else {
-        cheatingDaddy.setStatus('error');
-        return false;
-    }
+    return false;
 }
 
 async function cancelLocalInitialization() {
-    return ipcRenderer.invoke('cancel-local-initialization');
+    return true;
 }
 
 async function initializeCloud(profile = 'interview') {

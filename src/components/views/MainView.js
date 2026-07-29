@@ -1233,189 +1233,22 @@ export class MainView extends LitElement {
                 </div>
             </details>
 
-            ${this._renderStartButton()} ${this._renderDivider()}
-
-            <!-- Cloud promo intentionally removed from the active UI. -->
-
-            <div class="mode-links">
-                <button class="mode-link" @click=${() => this._saveMode('local')}>Use local AI</button>
-            </div>
-        `;
-    }
-
-    // ── Local AI mode ──
-
-    _renderLocalMode() {
-        return html`
-            <details class="config-section">
-                <summary class="config-summary">
-                    <span class="config-summary-text">
-                        <span class="config-summary-title">Language model</span>
-                        <span class="config-summary-description">Local GGUF model</span>
-                    </span>
-                    ${this._renderConfigChevron()}
-                </summary>
-                <div class="config-content">
-                    <div class="form-group">
-                        <label class="form-label">Model</label>
-                        <select
-                            .value=${this._useCustomLocalLlmModel ? 'custom' : this._localLlmModel}
-                            @change=${event => this._selectLocalLlmModel(event.target.value)}
-                        >
-                            ${LOCAL_LLM_PRESETS.map(preset => html`<option value=${preset.value}>${preset.label}</option>`)}
-                            <option value="custom">Custom Hugging Face model or local GGUF…</option>
-                        </select>
-                        ${
-                            this._useCustomLocalLlmModel
-                                ? html`
-                                      <input
-                                          type="text"
-                                          placeholder="owner/repository:quant or /absolute/model.gguf"
-                                          .value=${this._localLlmModel}
-                                          @input=${event => this._saveLocalLlmModel(event.target.value)}
-                                      />
-                                  `
-                                : ''
-                        }
-                        <div class="form-hint">Sizes include the vision model. Q4 uses less memory; Q8 preserves more quality.</div>
-                    </div>
-                </div>
-            </details>
-
-            <details class="config-section">
-                <summary class="config-summary">
-                    <span class="config-summary-text">
-                        <span class="config-summary-title">Transcription</span>
-                        <span class="config-summary-description">Whisper speech-to-text model</span>
-                    </span>
-                    ${this._renderConfigChevron()}
-                </summary>
-                <div class="config-content">
-                    <div class="form-group">
-                        <div class="whisper-label-row">
-                            <label class="form-label">Whisper Model</label>
-                            ${this.whisperDownloading ? html`<div class="whisper-spinner"></div>` : ''}
-                        </div>
-                        <select .value=${this._whisperModel} @change=${e => this._saveWhisperModel(e.target.value)}>
-                            <option value="tiny.en" ?selected=${this._whisperModel === 'tiny.en'}>Tiny English (75 MB, fastest)</option>
-                            <option value="base.en" ?selected=${this._whisperModel === 'base.en'}>Base English (142 MB)</option>
-                            <option value="small.en" ?selected=${this._whisperModel === 'small.en'}>Small English (466 MB, most accurate)</option>
-                        </select>
-                        <div class="form-hint">${this.whisperDownloading ? 'Downloading model...' : 'Downloaded automatically on first use'}</div>
-                    </div>
-                </div>
-            </details>
-
-            ${this._renderStartButton()} ${this._renderDivider()}
-
-            <!-- Cloud promo intentionally removed from the active UI. -->
-
-            <div class="mode-links">
-                <button class="mode-link" @click=${() => this._saveMode('byok')}>Use own API keys</button>
-            </div>
+            ${this._renderStartButton()}
         `;
     }
 
     // ── Main render ──
 
     render() {
-        const helpIcon = html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-            <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0m9 5v.01" />
-                <path d="M12 13.5a1.5 1.5 0 0 1 1-1.5a2.6 2.6 0 1 0-3-4" />
-            </g>
-        </svg>`;
-        const closeIcon = html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-            <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12" />
-        </svg>`;
-
         return html`
             <div class="form-wrapper">
-                ${
-                    this._mode === 'local'
-                        ? html`
-                              <div class="title-row">
-                                  <div class="page-title">Cheating Daddy <span class="mode-suffix">Local AI</span></div>
-                                  <button class="help-btn" @click=${this._openLocalHelp} aria-label="Open Local AI help">${helpIcon}</button>
-                              </div>
-                          `
-                        : html` <div class="page-title">${html`Cheating Daddy <span class="mode-suffix">BYOK</span>`}</div> `
-                }
-                <div class="page-subtitle">${this._mode === 'byok' ? 'Bring your own API keys' : 'Run models locally on your machine'}</div>
-
-                <!-- Cloud mode render branch intentionally disabled. -->
-                ${this._mode === 'byok' ? this._renderByokMode() : ''} ${this._mode === 'local' ? this._renderLocalMode() : ''}
-            </div>
-            ${this._mode === 'local' && this._showLocalHelp ? this._renderLocalHelp(closeIcon) : ''}
-        `;
-    }
-
-    _renderLocalHelp(closeIcon) {
-        return html`
-            <div class="help-dialog-backdrop" @click=${this._closeLocalHelp}>
-                <section class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="local-help-title" @click=${this._handleHelpDialogClick}>
-                    <div class="help-dialog-header">
-                        <div id="local-help-title" class="help-dialog-title">Local AI setup</div>
-                        <button class="help-btn" @click=${this._closeLocalHelp} aria-label="Close Local AI help">${closeIcon}</button>
-                    </div>
-
-                    <div class="help-content">
-                        <div class="help-section">
-                            <div class="help-section-title">Native local AI</div>
-                            <div class="help-section-text">
-                                Cheating Daddy runs llama.cpp and whisper.cpp directly. Everything stays on your computer — no external AI service or
-                                Ollama installation is required.
-                            </div>
-                        </div>
-
-                        <div class="help-section">
-                            <div class="help-section-title">Automatic setup</div>
-                            <div class="help-section-text">
-                                The correct native runners, selected Whisper model, and language model are downloaded and checksum-verified on first
-                                use. They are stored in the Cheating Daddy config directory.
-                            </div>
-                        </div>
-
-                        <div class="help-section">
-                            <div class="help-section-title">Default model</div>
-                            <div class="help-models">
-                                <div class="help-model">
-                                    <span class="help-model-name">Qwen3.5 4B Q4_K_M</span><span>About 2.7 GB — balanced local quality and speed</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="help-section">
-                            <div class="help-section-title">Whisper</div>
-                            <div class="help-section-text">
-                                The selected whisper.cpp model is downloaded automatically once and kept in the config directory.
-                            </div>
-                        </div>
-
-                        <hr class="help-divider" />
-
-                        <div class="help-section">
-                            <div class="help-section-title">Computer hanging or slow?</div>
-                            <div class="help-section-text">
-                                Running models locally uses a lot of RAM and CPU. If your computer slows down or freezes, it's likely the LLM. Switch
-                                back to BYOK mode if you want to use a hosted provider instead.
-                            </div>
-                        </div>
-
-                        <button
-                            class="help-cloud-btn"
-                            @click=${() => {
-                                this._closeLocalHelp();
-                                this._saveMode('byok');
-                            }}
-                        >
-                            Switch to BYOK
-                        </button>
-                    </div>
-                </section>
+                <div class="page-title">${html`Cheating Daddy <span class="mode-suffix">BYOK</span>`}</div>
+                <div class="page-subtitle">Bring your own API keys (Gemini & Groq)</div>
+                ${this._renderByokMode()}
             </div>
         `;
     }
+
 }
 
 customElements.define('main-view', MainView);

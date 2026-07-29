@@ -6,7 +6,6 @@ import { HistoryView } from '../views/HistoryView.js';
 import { AssistantView } from '../views/AssistantView.js';
 import { OnboardingView } from '../views/OnboardingView.js';
 import { AICustomizeView } from '../views/AICustomizeView.js';
-import { FeedbackView } from '../views/FeedbackView.js';
 
 export class CheatingDaddyApp extends LitElement {
     static styles = css`
@@ -752,9 +751,6 @@ export class CheatingDaddyApp extends LitElement {
                         .onProfileChange=${p => this.handleProfileChange(p)}
                         .onStart=${() => this.handleStart()}
                         .onExternalLink=${url => this.handleExternalLinkClick(url)}
-                        .whisperDownloading=${this._whisperDownloading}
-                        .downloadProgress=${this._localAiDownloadProgress}
-                        .onCancelDownload=${() => this.handleCancelLocalDownload()}
                     ></main-view>
                 `;
 
@@ -782,8 +778,7 @@ export class CheatingDaddyApp extends LitElement {
                     ></customize-view>
                 `;
 
-            case 'feedback':
-                return html`<feedback-view></feedback-view>`;
+
 
             case 'help':
                 return html`<help-view .onExternalLinkClick=${url => this.handleExternalLinkClick(url)}></help-view>`;
@@ -865,16 +860,7 @@ export class CheatingDaddyApp extends LitElement {
                     </g>
                 </svg>`,
             },
-            {
-                id: 'feedback',
-                label: 'Feedback',
-                icon: html`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-                    <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                        <path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zM9.5 9h.01m4.99 0h.01" />
-                        <path d="M9.5 13a3.5 3.5 0 0 0 5 0" />
-                    </g>
-                </svg>`,
-            },
+
             {
                 id: 'help',
                 label: 'Help',
