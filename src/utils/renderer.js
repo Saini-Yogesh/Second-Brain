@@ -553,10 +553,10 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
     );
 }
 
-const MANUAL_SCREENSHOT_PROMPT = `Help me on this page, give me the answer no bs, complete answer.
-So if its a code question, give me the approach in few bullet points, then the entire code. Also if theres anything else i need to know, tell me.
-If its a question about the website, give me the answer no bs, complete answer.
-If its a mcq question, give me the answer no bs, complete answer.`;
+const MANUAL_SCREENSHOT_PROMPT = `Help me on this page, give me ONLY the direct answer.
+Do NOT include headings like "Direct Answer", "Key Points", or "Possible Follow-up".
+If it is a code question, provide a brief approach in bullet points followed by the code.
+If it is an MCQ, provide the option and exact answer directly.`;
 
 async function captureManualScreenshot(imageQuality = null) {
     console.log('Manual screenshot triggered');

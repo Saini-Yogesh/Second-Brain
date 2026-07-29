@@ -727,9 +727,9 @@ export class MainView extends LitElement {
         this._geminiKey = '';
         this._groqKey = '';
         this._openaiKey = '';
-        this._geminiLiveModel = 'gemini-3.1-flash-live-preview';
-        this._groqModel = 'qwen/qwen3.6-27b';
-        this._groqImageModel = 'qwen/qwen3.6-27b';
+        this._geminiLiveModel = 'gemini-2.0-flash-exp';
+        this._groqModel = 'llama-3.1-8b-instant';
+        this._groqImageModel = 'llama-3.2-11b-vision-instruct';
         this._disableGroqThinking = true;
         this._tokenError = false;
         this._keyError = false;
@@ -767,9 +767,9 @@ export class MainView extends LitElement {
             this._geminiKey = (await cheatingDaddy.storage.getApiKey().catch(() => '')) || '';
             this._groqKey = (await cheatingDaddy.storage.getGroqApiKey().catch(() => '')) || '';
             this._openaiKey = creds.openaiKey || '';
-            this._geminiLiveModel = config.geminiLiveModel || 'gemini-3.1-flash-live-preview';
-            this._groqModel = config.groqModel || 'qwen/qwen3.6-27b';
-            this._groqImageModel = config.groqImageModel || 'qwen/qwen3.6-27b';
+            this._geminiLiveModel = config.geminiLiveModel || 'gemini-2.0-flash-exp';
+            this._groqModel = config.groqModel || 'llama-3.1-8b-instant';
+            this._groqImageModel = config.groqImageModel || 'llama-3.2-11b-vision-instruct';
             this._disableGroqThinking = config.disableGroqThinking === true;
 
             // Load local AI settings

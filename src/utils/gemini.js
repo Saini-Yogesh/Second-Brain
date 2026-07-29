@@ -48,7 +48,7 @@ let systemAudioProc = null;
 let messageBuffer = '';
 let groqRequestStartedForTurn = false;
 
-const GROQ_MAX_COMPLETION_TOKENS = 16384;
+const GROQ_MAX_COMPLETION_TOKENS = 2048;
 const GROQ_EMPTY_RESPONSE_MESSAGE =
     'Groq reached the maximum completion-token limit before returning a final answer. Disable thinking in Home → AI responses and try again.';
 
@@ -285,7 +285,10 @@ async function sendToGroq(transcription) {
     }
 
     const config = getConfig();
-    const modelToUse = config.groqModel;
+    let modelToUse = config.groqModel || 'llama-3.1-8b-instant';
+    if (modelToUse === 'qwen/qwen3.6-27b') {
+        modelToUse = 'llama-3.1-8b-instant';
+    }
 
     console.log(`Sending to Groq (${modelToUse}):`, transcription.substring(0, 100) + '...');
     logTransportEvent('groq.text.request', {
@@ -298,8 +301,8 @@ async function sendToGroq(transcription) {
         content: transcription.trim(),
     });
 
-    if (groqConversationHistory.length > 20) {
-        groqConversationHistory = groqConversationHistory.slice(-20);
+    if (groqConversationHistory.length > 6) {
+        groqConversationHistory = groqConversationHistory.slice(-6);
     }
 
     try {
@@ -326,7 +329,12 @@ async function sendToGroq(transcription) {
                 status: response.status,
                 body: errorText,
             });
-            sendToRenderer('update-status', `Groq error: ${response.status}`);
+            if (response.status === 413) {
+                groqConversationHistory = groqConversationHistory.slice(-2);
+                sendToRenderer('update-status', 'Groq token limit reached (413). Context trimmed.');
+            } else {
+                sendToRenderer('update-status', `Groq error: ${response.status}`);
+            }
             return;
         }
 
@@ -424,7 +432,10 @@ async function sendToGroq(transcription) {
 async function sendImageToGroq(base64Data, prompt) {
     const groqApiKey = getGroqApiKey();
     const config = getConfig();
-    const model = config.groqImageModel;
+    let model = config.groqImageModel || 'llama-3.2-11b-vision-instruct';
+    if (model.includes('preview') || model === 'qwen/qwen3.6-27b') {
+        model = 'llama-3.2-11b-vision-instruct';
+    }
 
     logTransportEvent('groq.image.request', {
         model,
@@ -662,8 +673,17 @@ async function initializeGeminiSession(apiKey, customPrompt = '', profile = 'int
     }
 
     try {
+        let liveModel = getConfig().geminiLiveModel || 'gemini-2.0-flash-exp';
+        if (
+            liveModel === 'gemini-3.1-flash-live-preview' ||
+            liveModel === 'gemini-2.0-flash' ||
+            liveModel === 'gemini-3.1-flash-lite'
+        ) {
+            liveModel = 'gemini-2.0-flash-exp';
+        }
+
         const session = await client.live.connect({
-            model: getConfig().geminiLiveModel,
+            model: liveModel,
             callbacks: {
                 onopen: function () {
                     logTransportEvent('gemini.live.opened', {});
@@ -789,11 +809,13 @@ async function attemptReconnect() {
     await new Promise(resolve => setTimeout(resolve, RECONNECT_DELAY));
 
     try {
+        const apiKey = sessionParams?.apiKey || getApiKey();
+        if (!apiKey) return;
         const session = await initializeGeminiSession(
-            sessionParams.apiKey,
-            sessionParams.customPrompt,
-            sessionParams.profile,
-            sessionParams.language,
+            apiKey,
+            sessionParams?.customPrompt || '',
+            sessionParams?.profile || 'interview',
+            sessionParams?.language || 'en-US',
             true // isReconnect
         );
 
@@ -1197,7 +1219,9 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 return result;
             }
 
-            const result = hasGroqKey() ? await sendImageToGroq(data, prompt) : await sendImageToGeminiHttp(data, prompt);
+            const result = getApiKey()
+                ? await sendImageToGeminiHttp(data, prompt)
+                : await sendImageToGroq(data, prompt);
             return result;
         } catch (error) {
             console.error('Error sending image:', error);

@@ -9,9 +9,9 @@ const DEFAULT_CONFIG = {
     configVersion: CONFIG_VERSION,
     onboarded: false,
     layout: 'normal',
-    geminiLiveModel: 'gemini-3.1-flash-live-preview',
-    groqModel: 'qwen/qwen3.6-27b',
-    groqImageModel: 'qwen/qwen3.6-27b',
+    geminiLiveModel: 'gemini-2.0-flash-exp',
+    groqModel: 'llama-3.1-8b-instant',
+    groqImageModel: 'llama-3.2-11b-vision-instruct',
     disableGroqThinking: true,
 };
 
@@ -359,15 +359,13 @@ function incrementCharUsage(provider, model, charCount) {
 function getAvailableModel() {
     const todayLimits = getTodayLimits();
 
-    // RPD limits: flash = 20, flash-lite = 20
-    // After both exhausted, fall back to flash (for paid API users)
-    if (todayLimits.flash.count < 20) {
-        return 'gemini-2.5-flash';
-    } else if (todayLimits.flashLite.count < 20) {
-        return 'gemini-2.5-flash-lite';
+    if (todayLimits.flash && todayLimits.flash.count < 200) {
+        return 'gemini-3.6-flash';
+    } else if (todayLimits.flashLite && todayLimits.flashLite.count < 200) {
+        return 'gemini-2.0-flash-lite';
     }
 
-    return 'gemini-2.5-flash'; // Default to flash for paid API users
+    return 'gemini-3.6-flash';
 }
 
 function getModelForToday() {
