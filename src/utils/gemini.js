@@ -3,7 +3,7 @@ const { BrowserWindow, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const { saveDebugAudio } = require('../audioUtils');
 const { getSystemPrompt } = require('./prompts');
-const { getAvailableModel, incrementLimitCount, getApiKey, getGroqApiKey, incrementCharUsage, getConfig } = require('../storage');
+const { getAvailableModel, incrementLimitCount, getApiKey, getGroqApiKey, cycleGroqApiKey, incrementCharUsage, getConfig } = require('../storage');
 const { startTransportLog, logTransportEvent, closeTransportLog } = require('./transportLogger');
 
 // Provider mode: 'byok'
@@ -264,6 +264,106 @@ function getGroqReasoningOptions(model, disableThinking) {
     return {};
 }
 
+const WHISPER_HALLUCINATION_PATTERNS = [
+    /^thank\s*you[\s.!,]*$/i,
+    /^thanks[\s.!,]*$/i,
+    /^thank\s*you\s*(very\s*much|so\s*much)[\s.!,]*$/i,
+    /^thanks\s*for\s*watching[\s.!,]*$/i,
+    /^thank\s*you\s*for\s*watching[\s.!,]*$/i,
+    /^please\s*(like\s*and\s*)?subscribe[\s.!,]*$/i,
+    /^bye[\s.!,]*$/i,
+    /^goodbye[\s.!,]*$/i,
+    /^see\s*you\s*(next\s*time|later)[\s.!,]*$/i,
+    /^you[\s.!,]*$/i,
+    /^the\s*end[\s.!,]*$/i,
+    /^(?:\[.*?\]|\(.*?\)|\*.*?\*)$/,
+    /subtitles\s*by/i,
+    /amara\.org/i,
+    /^ok\s*thank\s*you[\s.!,]*$/i,
+    /^okay\s*thank\s*you[\s.!,]*$/i,
+    /^yeah[\s.!,]*$/i,
+    /^uh[\s.!,]*$/i,
+    /^um[\s.!,]*$/i,
+];
+
+function isWhisperHallucination(text) {
+    if (!text || text.trim().length <= 1) return true;
+    const clean = text.trim();
+    return WHISPER_HALLUCINATION_PATTERNS.some(pattern => pattern.test(clean));
+}
+
+async function sendToGroqWhisper(wavBuffer) {
+    const groqApiKey = getGroqApiKey();
+    if (!groqApiKey) {
+        console.log('No Groq API key configured for Whisper');
+        return;
+    }
+
+    sendToRenderer('update-status', 'Transcribing...');
+    console.log('Sending audio to Groq Whisper...');
+
+    try {
+        const formData = new FormData();
+        const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+        formData.append('file', blob, 'audio.wav');
+
+        // Use turbo model for blazing-fast real-time transcription (< 250ms on Groq)
+        formData.append('model', 'whisper-large-v3-turbo');
+        formData.append('response_format', 'json');
+
+        // Force English language to prevent hallucinations/language confusion
+        formData.append('language', 'en');
+
+        // Provide context to improve transcription of technical terms
+        formData.append(
+            'prompt',
+            'Software engineering technical interview. Coding, programming, React, Node.js, JavaScript, Python, C++, frontend, backend, database, system design, LeetCode, DSA.'
+        );
+
+        const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${groqApiKey}`,
+                // No Content-Type header here; fetch handles it automatically for FormData
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Groq Whisper error:', response.status, errorText);
+
+            if (response.status === 429) {
+                sendToRenderer('update-status', 'Groq Whisper rate limit. Cycling keys...');
+                if (cycleGroqApiKey()) {
+                    return sendToGroqWhisper(wavBuffer);
+                }
+            }
+            sendToRenderer('update-status', `Whisper error: ${response.status}`);
+            return;
+        }
+
+        const data = await response.json();
+        const text = data.text ? data.text.trim() : '';
+
+        if (text && !isWhisperHallucination(text)) {
+            console.log('Transcription:', text);
+            sendToRenderer('update-status', 'Answering...');
+
+            // Pipe directly to LLM
+            sendToGroq(text);
+        } else {
+            if (text) {
+                console.log('Ignored hallucination/noise:', text);
+            }
+            sendToRenderer('update-status', 'Listening...');
+        }
+    } catch (error) {
+        console.error('Error calling Groq Whisper:', error);
+        sendToRenderer('update-status', 'Whisper error: ' + error.message);
+    }
+}
+
 async function sendToGroq(transcription) {
     const groqApiKey = getGroqApiKey();
     if (!groqApiKey) {
@@ -277,9 +377,11 @@ async function sendToGroq(transcription) {
     }
 
     const config = getConfig();
-    let modelToUse = config.groqModel || 'llama-3.1-8b-instant';
-    if (modelToUse === 'qwen/qwen3.6-27b') {
-        modelToUse = 'llama-3.1-8b-instant';
+    let modelToUse = config.groqModel || 'openai/gpt-oss-20b';
+    if (modelToUse === 'llama-3.1-8b-instant') {
+        modelToUse = 'openai/gpt-oss-20b';
+    } else if (modelToUse === 'llama-3.3-70b-versatile') {
+        modelToUse = 'openai/gpt-oss-120b';
     }
 
     console.log(`Sending to Groq (${modelToUse}):`, transcription.substring(0, 100) + '...');
@@ -293,8 +395,8 @@ async function sendToGroq(transcription) {
         content: transcription.trim(),
     });
 
-    if (groqConversationHistory.length > 6) {
-        groqConversationHistory = groqConversationHistory.slice(-6);
+    if (groqConversationHistory.length > 40) {
+        groqConversationHistory = groqConversationHistory.slice(-40);
     }
 
     try {
@@ -324,6 +426,15 @@ async function sendToGroq(transcription) {
             if (response.status === 413) {
                 groqConversationHistory = groqConversationHistory.slice(-2);
                 sendToRenderer('update-status', 'Groq token limit reached (413). Context trimmed.');
+            } else if (response.status === 429) {
+                sendToRenderer('update-status', `Groq rate limit reached. Cycling keys...`);
+                if (cycleGroqApiKey()) {
+                    // Remove the last user message from history because we are going to retry and it will be pushed again
+                    groqConversationHistory.pop();
+                    return sendToGroq(transcription);
+                } else {
+                    sendToRenderer('update-status', 'Groq rate limit reached and no other keys available.');
+                }
             } else {
                 sendToRenderer('update-status', `Groq error: ${response.status}`);
             }
@@ -424,9 +535,9 @@ async function sendToGroq(transcription) {
 async function sendImageToGroq(base64Data, prompt) {
     const groqApiKey = getGroqApiKey();
     const config = getConfig();
-    let model = config.groqImageModel || 'llama-3.2-11b-vision-instruct';
-    if (model.includes('preview') || model === 'qwen/qwen3.6-27b') {
-        model = 'llama-3.2-11b-vision-instruct';
+    let model = config.groqImageModel || 'qwen/qwen3.6-27b';
+    if (model === 'llama-3.2-11b-vision-instruct' || model.includes('preview')) {
+        model = 'qwen/qwen3.6-27b';
     }
 
     logTransportEvent('groq.image.request', {
@@ -473,6 +584,12 @@ async function sendImageToGroq(base64Data, prompt) {
                 status: response.status,
                 body: errorText,
             });
+            if (response.status === 429) {
+                sendToRenderer('update-status', 'Groq image rate limit. Cycling keys...');
+                if (cycleGroqApiKey()) {
+                    return sendImageToGroq(base64Data, prompt);
+                }
+            }
             return { success: false, error: `Groq error: ${response.status}` };
         }
 
@@ -533,6 +650,20 @@ async function sendImageToGroq(base64Data, prompt) {
         }
 
         saveScreenAnalysis(prompt, cleanedResponse, model);
+
+        // Add to conversation history so subsequent voice questions know what is on the screen
+        groqConversationHistory.push({
+            role: 'user',
+            content: `[Visual context on my screen]: ${prompt ? prompt.substring(0, 300) : 'Coding question/problem shown on screen'}`,
+        });
+        groqConversationHistory.push({
+            role: 'assistant',
+            content: cleanedResponse,
+        });
+        if (groqConversationHistory.length > 40) {
+            groqConversationHistory = groqConversationHistory.slice(-40);
+        }
+
         logTransportEvent('groq.image.completed', {
             model,
             response: cleanedResponse,
@@ -665,13 +796,9 @@ async function initializeGeminiSession(apiKey, customPrompt = '', profile = 'int
     }
 
     try {
-        let liveModel = getConfig().geminiLiveModel || 'gemini-2.0-flash-exp';
-        if (
-            liveModel === 'gemini-3.1-flash-live-preview' ||
-            liveModel === 'gemini-2.0-flash' ||
-            liveModel === 'gemini-3.1-flash-lite'
-        ) {
-            liveModel = 'gemini-2.0-flash-exp';
+        let liveModel = getConfig().geminiLiveModel || 'gemini-3.1-flash-live-preview';
+        if (liveModel === 'gemini-2.0-flash-exp' || liveModel === 'gemini-2.0-flash' || liveModel === 'gemini-3.1-flash-lite') {
+            liveModel = 'gemini-3.1-flash-live-preview';
         }
 
         const session = await client.live.connect({
@@ -1080,17 +1207,23 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
         }
     });
 
-    ipcMain.handle('initialize-gemini', async (event, apiKey, customPrompt, profile = 'interview', language = 'en-US') => {
+    ipcMain.handle('initialize-byok', async (event, customPrompt, profile = 'interview', language = 'en-US') => {
         currentProviderMode = 'byok';
-        const session = await initializeGeminiSession(apiKey, customPrompt, profile, language);
-        if (session) {
-            geminiSessionRef.current = session;
-            return true;
-        }
-        return false;
+        currentSystemPrompt = getSystemPrompt(profile, customPrompt);
+        initializeNewSession(profile, customPrompt);
+        sendToRenderer('session-initializing', false);
+        sendToRenderer('update-status', 'Listening...');
+        return true;
     });
 
-
+    ipcMain.handle('initialize-gemini', async (event, apiKey, customPrompt, profile = 'interview', language = 'en-US') => {
+        currentProviderMode = 'byok';
+        currentSystemPrompt = getSystemPrompt(profile, customPrompt);
+        initializeNewSession(profile, customPrompt);
+        sendToRenderer('session-initializing', false);
+        sendToRenderer('update-status', 'Listening...');
+        return true;
+    });
 
     ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
         if (currentProviderMode === 'cloud') {
@@ -1113,6 +1246,18 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             return { success: true };
         } catch (error) {
             console.error('Error sending system audio:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('send-audio-for-transcription', async (event, { data, mimeType }) => {
+        try {
+            const wavBuffer = Buffer.from(data, 'base64');
+            // We do not await this, we just fire and forget, so the audio chunks keep processing
+            sendToGroqWhisper(wavBuffer);
+            return { success: true };
+        } catch (error) {
+            console.error('Error in send-audio-for-transcription:', error);
             return { success: false, error: error.message };
         }
     });
@@ -1159,19 +1304,8 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
 
             process.stdout.write('!');
 
-            if (currentProviderMode === 'cloud') {
-                const sent = sendCloudImage(data);
-                if (!sent) {
-                    return { success: false, error: 'Cloud connection not active' };
-                }
-                return { success: true, model: 'cloud' };
-            }
-
-
-
-            const result = getApiKey()
-                ? await sendImageToGeminiHttp(data, prompt)
-                : await sendImageToGroq(data, prompt);
+            // Always use Groq for image processing
+            const result = await sendImageToGroq(data, prompt);
             return result;
         } catch (error) {
             console.error('Error sending image:', error);
@@ -1184,30 +1318,13 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             return { success: false, error: 'Invalid text message' };
         }
 
-        if (currentProviderMode === 'cloud') {
-            try {
-                console.log('Sending text to cloud:', text);
-                sendCloudText(text.trim());
-                return { success: true };
-            } catch (error) {
-                console.error('Error sending cloud text:', error);
-                return { success: false, error: error.message };
-            }
-        }
-
-
-
-        if (!geminiSessionRef.current) return { success: false, error: 'No active Gemini session' };
-
         try {
             console.log('Sending text message:', text);
 
             if (hasGroqKey()) {
-                groqRequestStartedForTurn = true;
                 sendToGroq(text.trim());
             }
 
-            await geminiSessionRef.current.sendRealtimeInput({ text: text.trim() });
             return { success: true };
         } catch (error) {
             console.error('Error sending text:', error);
@@ -1252,8 +1369,6 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 closeTransportLog();
                 return { success: true };
             }
-
-
 
             // Set flag to prevent reconnection attempts
             isUserClosing = true;
