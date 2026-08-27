@@ -696,7 +696,7 @@ export class MainView extends LitElement {
         _mode: { state: true },
         _token: { state: true },
         _geminiKey: { state: true },
-        _groqKey: { state: true },
+        _groqKeys: { state: true },
         _openaiKey: { state: true },
         _geminiLiveModel: { state: true },
         _groqModel: { state: true },
@@ -727,9 +727,9 @@ export class MainView extends LitElement {
         this._geminiKey = '';
         this._groqKey = '';
         this._openaiKey = '';
-        this._geminiLiveModel = 'gemini-2.0-flash-exp';
-        this._groqModel = 'llama-3.1-8b-instant';
-        this._groqImageModel = 'llama-3.2-11b-vision-instruct';
+        this._geminiLiveModel = 'gemini-3.1-flash-live-preview';
+        this._groqModel = 'openai/gpt-oss-20b';
+        this._groqImageModel = 'qwen/qwen3.6-27b';
         this._disableGroqThinking = true;
         this._tokenError = false;
         this._keyError = false;
@@ -765,11 +765,14 @@ export class MainView extends LitElement {
             // Load keys
             this._token = creds.cloudToken || '';
             this._geminiKey = (await cheatingDaddy.storage.getApiKey().catch(() => '')) || '';
-            this._groqKey = (await cheatingDaddy.storage.getGroqApiKey().catch(() => '')) || '';
+            this._groqKeys = await cheatingDaddy.storage.getAllGroqApiKeys().catch(() => []);
+            if (!this._groqKeys || this._groqKeys.length === 0) {
+                this._groqKeys = [''];
+            }
             this._openaiKey = creds.openaiKey || '';
-            this._geminiLiveModel = config.geminiLiveModel || 'gemini-2.0-flash-exp';
-            this._groqModel = config.groqModel || 'llama-3.1-8b-instant';
-            this._groqImageModel = config.groqImageModel || 'llama-3.2-11b-vision-instruct';
+            this._geminiLiveModel = config.geminiLiveModel || 'gemini-3.1-flash-live-preview';
+            this._groqModel = config.groqModel || 'openai/gpt-oss-20b';
+            this._groqImageModel = config.groqImageModel || 'qwen/qwen3.6-27b';
             this._disableGroqThinking = config.disableGroqThinking === true;
 
             // Load local AI settings
@@ -939,9 +942,24 @@ export class MainView extends LitElement {
         this.requestUpdate();
     }
 
-    async _saveGroqKey(val) {
-        this._groqKey = val;
-        await cheatingDaddy.storage.setGroqApiKey(val);
+    async _updateGroqKey(index, val) {
+        this._groqKeys[index] = val;
+        await cheatingDaddy.storage.setGroqApiKey(this._groqKeys);
+        this.requestUpdate();
+    }
+
+    async _addGroqKey() {
+        this._groqKeys.push('');
+        await cheatingDaddy.storage.setGroqApiKey(this._groqKeys);
+        this.requestUpdate();
+    }
+
+    async _removeGroqKey(index) {
+        this._groqKeys.splice(index, 1);
+        if (this._groqKeys.length === 0) {
+            this._groqKeys.push('');
+        }
+        await cheatingDaddy.storage.setGroqApiKey(this._groqKeys);
         this.requestUpdate();
     }
 
@@ -1023,11 +1041,8 @@ export class MainView extends LitElement {
         if (this.isInitializing || this.downloadProgress.active) return;
 
         if (this._mode === 'byok') {
-            if (!this._geminiKey.trim()) {
-                this._keyError = true;
-                this.requestUpdate();
-                return;
-            }
+            // Groq keys are checked dynamically during requests, no strict requirement to block start
+            // if we want to block, we could check this._groqKeys
         } else if (this._mode === 'local') {
             if (!this._localLlmModel.trim()) {
                 return;
@@ -1158,49 +1173,59 @@ export class MainView extends LitElement {
 
     _renderByokMode() {
         return html`
-            <details class="config-section">
+            <details class="config-section" open>
                 <summary class="config-summary">
                     <span class="config-summary-text">
-                        <span class="config-summary-title">Transcription</span>
-                        <span class="config-summary-description">Gemini Live connection</span>
+                        <span class="config-summary-title">AI Engine</span>
+                        <span class="config-summary-description">Groq API Keys & Models</span>
                     </span>
                     ${this._renderConfigChevron()}
                 </summary>
                 <div class="config-content">
                     <div class="form-group">
-                        <label class="form-label">Gemini API Key</label>
-                        <input
-                            type="password"
-                            placeholder="Required"
-                            .value=${this._geminiKey}
-                            @input=${e => this._saveGeminiKey(e.target.value)}
-                            class=${this._keyError ? 'error' : ''}
-                        />
-                        <div class="form-hint">
-                            <span class="link" @click=${() => this.onExternalLink('https://aistudio.google.com/apikey')}>Get Gemini key</span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Gemini Live Model</label>
-                        <input type="text" .value=${this._geminiLiveModel} @input=${e => this._saveGeminiLiveModel(e.target.value)} />
-                    </div>
-                </div>
-            </details>
-
-            <details class="config-section">
-                <summary class="config-summary">
-                    <span class="config-summary-text">
-                        <span class="config-summary-title">AI responses</span>
-                        <span class="config-summary-description">Groq key and response model</span>
-                    </span>
-                    ${this._renderConfigChevron()}
-                </summary>
-                <div class="config-content">
-                    <div class="form-group">
-                        <label class="form-label">Groq API Key</label>
-                        <input type="password" placeholder="Optional" .value=${this._groqKey} @input=${e => this._saveGroqKey(e.target.value)} />
-                        <div class="form-hint">
+                        <label class="form-label">Groq API Keys</label>
+                        <div class="form-hint" style="margin-bottom: 8px;">Add multiple keys to auto-switch if rate limited.</div>
+                        ${this._groqKeys.map(
+                            (key, index) => html`
+                                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                    <input
+                                        type="password"
+                                        placeholder="Enter Groq API Key"
+                                        .value=${key}
+                                        @input=${e => this._updateGroqKey(index, e.target.value)}
+                                        style="flex: 1;"
+                                    />
+                                    <button
+                                        class="delete-btn"
+                                        @click=${() => this._removeGroqKey(index)}
+                                        style="background: none; border: none; color: var(--color-text-dim); cursor: pointer; padding: 4px;"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path d="M3 6h18"></path>
+                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            `
+                        )}
+                        <button
+                            @click=${() => this._addGroqKey()}
+                            style="background: none; border: 1px dashed var(--color-border); color: var(--color-text); width: 100%; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 4px; font-size: 13px;"
+                        >
+                            + Add another key
+                        </button>
+                        <div class="form-hint" style="margin-top: 8px;">
                             <span class="link" @click=${() => this.onExternalLink('https://console.groq.com/keys')}>Get Groq key</span>
                         </div>
                     </div>
@@ -1228,7 +1253,7 @@ export class MainView extends LitElement {
                     </label>
 
                     <div class="config-note">
-                        If the Groq API key is empty, Gemini Live is used for answers instead. Its answer quality may be lower.
+                        Add one or more Groq API keys above. Groq Whisper and LLMs handle speech, screen analysis, and answers.
                     </div>
                 </div>
             </details>
@@ -1242,13 +1267,12 @@ export class MainView extends LitElement {
     render() {
         return html`
             <div class="form-wrapper">
-                <div class="page-title">${html`Cheating Daddy <span class="mode-suffix">BYOK</span>`}</div>
-                <div class="page-subtitle">Bring your own API keys (Gemini & Groq)</div>
+                <div class="page-title">${html`Cheating Daddy <span class="mode-suffix">AI</span>`}</div>
+                <div class="page-subtitle">Real-time Interview Copilot powered by Groq</div>
                 ${this._renderByokMode()}
             </div>
         `;
     }
-
 }
 
 customElements.define('main-view', MainView);

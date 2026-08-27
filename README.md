@@ -1,60 +1,69 @@
 <img width="1299" height="424" alt="cd (1)" src="https://github.com/user-attachments/assets/b25fff4d-043d-4f38-9985-f832ae0d0f6e" />
 
-## Recall.ai - API for desktop recording
-
-If you’re looking for a hosted desktop recording API, consider checking out [Recall.ai](https://www.recall.ai/product/desktop-recording-sdk/?utm_source=github&utm_medium=sponsorship&utm_campaign=sohzm-cheating-daddy), an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
-
-This project is sponsored by Recall.ai.
-
 ---
 
 > [!NOTE]  
-> Use latest MacOS and Windows version, older versions have limited support
+> Recommended for modern macOS and Windows operating systems.
 
-> [!NOTE]  
-> During testing it wont answer if you ask something, you need to simulate interviewer asking question, which it will answer
-
-A real-time AI assistant that provides contextual help during video calls, interviews, presentations, and meetings using screen capture and audio analysis.
+A high-performance, real-time AI interview copilot and meeting assistant that provides discreet contextual answers, working code, and live guidance using screen capture and ultra-fast audio transcription.
 
 ## Features
 
-- **Live AI Assistance**: Real-time help powered by Google Gemini 2.0 Flash Live
-- **Screen & Audio Capture**: Analyzes what you see and hear for contextual responses
-- **Multiple Profiles**: Interview, Sales Call, Business Meeting, Presentation, Negotiation
-- **Transparent Overlay**: Always-on-top window that can be positioned anywhere
-- **Click-through Mode**: Make window transparent to clicks when needed
-- **Cross-platform**: Works on macOS, Windows, and Linux (kinda, dont use, just for testing rn)
+- **⚡ Blazing-Fast Speech Transcription**: Real-time voice capture powered by Groq's `whisper-large-v3-turbo` with sub-second response times.
+- **🔑 Dynamic Multi-Key Cycling**: Enter multiple Groq API keys with automatic round-robin and rate-limit (HTTP 429) failover so you never run out of quota during long interviews.
+- **💻 Direct Code & Problem Solving**: Generates clean, production-ready code for LeetCode, DSA, System Design, SQL, and technical interview questions immediately without disclaimers.
+- **🖥️ Multimodal Screen & Audio Memory**: Captures screen context and audio dialogue into a unified 40-turn memory window.
+- **🛡️ Noise Gate & Anti-Hallucination**: Fine-tuned Voice Activity Detection (VAD) with silence artifact filtering to eliminate phantom responses.
+- **🪟 Transparent Overlay**: Discreet, always-on-top window with click-through and stealth modes.
+- **🎯 Multiple Profiles**: Job Interview, Sales Call, Business Meeting, Presentation, Negotiation, Exam.
 
-## Setup
+## Quick Start
 
-1. **Get a Gemini API Key**: Visit [Google AI Studio](https://aistudio.google.com/apikey)
-2. **Install Dependencies**: `npm install`
-3. **Run the App**: `npm start`
+1. **Clone the repository**:
 
-## Usage
+    ```bash
+    git clone https://github.com/your-username/cheating-daddy.git
+    cd cheating-daddy
+    ```
 
-1. Enter your Gemini API key in the main window
-2. Choose your profile and language in settings
-3. Click "Start Session" to begin
-4. Position the window using keyboard shortcuts
-5. The AI will provide real-time assistance based on your screen and what interview asks
+2. **Install Dependencies**:
+
+    ```bash
+    npm install
+    ```
+
+3. **Run the App**:
+
+    ```bash
+    npm start
+    ```
+
+4. **Add Your Groq API Keys**:
+    - Get one or more free API keys from [Groq Console](https://console.groq.com/keys).
+    - Add your keys in the app settings (you can add multiple keys for continuous failover).
+    - Click **Start Session** and you're ready!
 
 ## Keyboard Shortcuts
 
-- **Window Movement**: `Ctrl/Cmd + Arrow Keys` - Move window
-- **Click-through**: `Ctrl/Cmd + M` - Toggle mouse events
-- **Close/Back**: `Ctrl/Cmd + \` - Close window or go back
-- **Send Message**: `Enter` - Send text to AI
+| Action                   | Shortcut (Windows/Linux)   | Shortcut (macOS)          |
+| ------------------------ | -------------------------- | ------------------------- |
+| **Move Window**          | `Ctrl + Arrow Keys`        | `Cmd + Arrow Keys`        |
+| **Toggle Visibility**    | `Ctrl + \`                 | `Cmd + \`                 |
+| **Toggle Click-Through** | `Ctrl + M`                 | `Cmd + M`                 |
+| **Next Response**        | `Ctrl + ]`                 | `Cmd + ]`                 |
+| **Previous Response**    | `Ctrl + [`                 | `Cmd + [`                 |
+| **Next Step**            | `Ctrl + Enter`             | `Cmd + Enter`             |
+| **Scroll Up / Down**     | `Ctrl + Shift + Up / Down` | `Cmd + Shift + Up / Down` |
+| **Emergency Erase**      | `Ctrl + Shift + E`         | `Cmd + Shift + E`         |
 
-## Audio Capture
+## Audio Architecture
 
-- **macOS**: [SystemAudioDump](https://github.com/Mohammed-Yasin-Mulla/Sound) for system audio
-- **Windows**: Loopback audio capture
-- **Linux**: Microphone input
+- **Speech Transcription**: Groq `whisper-large-v3-turbo` with real-time VAD.
+- **Dual-Capture Audio**: Mixed system loopback (interviewer's voice) + microphone (candidate's voice).
+- **Inference Models**: `qwen/qwen3.6-27b`, `openai/gpt-oss-20b`, `openai/gpt-oss-120b`, and customizable models.
 
 ## Requirements
 
-- Electron-compatible OS (macOS, Windows, Linux)
-- Gemini API key
-- Screen recording permissions
-- Microphone/audio permissions
+- Node.js 18+
+- Groq API Key (Free tier supported)
+- Screen recording and Microphone permissions

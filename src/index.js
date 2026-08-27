@@ -137,6 +137,15 @@ function setupStorageIpcHandlers() {
         }
     });
 
+    ipcMain.handle('storage:get-all-groq-api-keys', async () => {
+        try {
+            return { success: true, data: storage.getAllGroqApiKeys() };
+        } catch (error) {
+            console.error('Error getting all Groq API keys:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // ============ PREFERENCES ============
     ipcMain.handle('storage:get-preferences', async () => {
         try {

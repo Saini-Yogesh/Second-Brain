@@ -2,6 +2,7 @@
 const { ipcRenderer } = require('electron');
 
 let mediaStream = null;
+let micStream = null;
 let screenshotInterval = null;
 let audioContext = null;
 let audioProcessor = null;
@@ -55,6 +56,10 @@ const storage = {
     },
     async setGroqApiKey(groqApiKey) {
         return ipcRenderer.invoke('storage:set-groq-api-key', groqApiKey);
+    },
+    async getAllGroqApiKeys() {
+        const result = await ipcRenderer.invoke('storage:get-all-groq-api-keys');
+        return result.success ? result.data : [];
     },
 
     // Preferences
@@ -140,17 +145,20 @@ function arrayBufferToBase64(buffer) {
     return btoa(binary);
 }
 
-async function initializeGemini(profile = 'interview', language = 'en-US') {
-    const apiKey = await storage.getApiKey();
-    if (apiKey) {
-        const prefs = await storage.getPreferences();
-        const success = await ipcRenderer.invoke('initialize-gemini', apiKey, prefs.customPrompt || '', profile, language);
-        if (success) {
-            cheatingDaddy.setStatus('Live');
-        } else {
-            cheatingDaddy.setStatus('error');
-        }
+async function initializeByok(profile = 'interview', language = 'en-US') {
+    const prefs = await storage.getPreferences();
+    const success = await ipcRenderer.invoke('initialize-byok', prefs.customPrompt || '', profile, language);
+    if (success) {
+        cheatingDaddy.setStatus('Live');
+        return true;
+    } else {
+        cheatingDaddy.setStatus('error');
+        return false;
     }
+}
+
+async function initializeGemini(profile = 'interview', language = 'en-US') {
+    return initializeByok(profile, language);
 }
 
 async function initializeLocal(profile = 'interview') {
@@ -218,7 +226,6 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
             console.log('macOS screen capture started - audio handled by SystemAudioDump');
 
             if (audioMode === 'mic_only' || audioMode === 'both') {
-                let micStream = null;
                 try {
                     micStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
@@ -236,93 +243,11 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                     console.warn('Failed to get microphone access on macOS:', micError);
                 }
             }
-        } else if (isLinux) {
-            // Linux - use display media for screen capture and try to get system audio
-            try {
-                // First try to get system audio via getDisplayMedia (works on newer browsers)
-                mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: 1,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                    },
-                    audio: {
-                        sampleRate: SAMPLE_RATE,
-                        channelCount: 1,
-                        echoCancellation: false, // Don't cancel system audio
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                    },
-                });
-
-                console.log('Linux system audio capture via getDisplayMedia succeeded');
-
-                // Setup audio processing for Linux system audio
-                setupLinuxSystemAudioProcessing();
-            } catch (systemAudioError) {
-                console.warn('System audio via getDisplayMedia failed, trying screen-only capture:', systemAudioError);
-
-                // Fallback to screen-only capture
-                mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: 1,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                    },
-                    audio: false,
-                });
-            }
-
-            // Additionally get microphone input for Linux based on audio mode
-            if (audioMode === 'mic_only' || audioMode === 'both') {
-                let micStream = null;
-                try {
-                    micStream = await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            sampleRate: SAMPLE_RATE,
-                            channelCount: 1,
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true,
-                        },
-                        video: false,
-                    });
-
-                    console.log('Linux microphone capture started');
-
-                    // Setup audio processing for microphone on Linux
-                    setupLinuxMicProcessing(micStream);
-                } catch (micError) {
-                    console.warn('Failed to get microphone access on Linux:', micError);
-                    // Continue without microphone if permission denied
-                }
-            }
-
-            console.log('Linux capture started - system audio:', mediaStream.getAudioTracks().length > 0, 'microphone mode:', audioMode);
         } else {
-            // Windows - use display media with loopback for system audio
-            mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: 1,
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                },
-                audio: {
-                    sampleRate: SAMPLE_RATE,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                },
-            });
-
-            console.log('Windows capture started with loopback audio');
-
-            // Setup audio processing for Windows loopback audio only
-            setupWindowsLoopbackProcessing();
+            // Windows & Linux - unified display and microphone capture with mixing
+            console.log(`Starting Windows/Linux capture with audio mode: ${audioMode}`);
 
             if (audioMode === 'mic_only' || audioMode === 'both') {
-                let micStream = null;
                 try {
                     micStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
@@ -334,12 +259,48 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                         },
                         video: false,
                     });
-                    console.log('Windows microphone capture started');
-                    setupLinuxMicProcessing(micStream);
+                    console.log('Microphone capture started successfully');
                 } catch (micError) {
-                    console.warn('Failed to get microphone access on Windows:', micError);
+                    console.warn('Failed to get microphone access:', micError);
                 }
             }
+
+            const requestSystemAudio = audioMode !== 'mic_only';
+            try {
+                mediaStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        frameRate: 1,
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                    },
+                    audio: requestSystemAudio
+                        ? {
+                              sampleRate: SAMPLE_RATE,
+                              channelCount: 1,
+                              echoCancellation: false,
+                              noiseSuppression: false,
+                              autoGainControl: false,
+                          }
+                        : false,
+                });
+            } catch (err) {
+                if (requestSystemAudio) {
+                    console.warn('Display capture with audio failed, attempting screen-only capture:', err);
+                    mediaStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            frameRate: 1,
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                        },
+                        audio: false,
+                    });
+                } else {
+                    throw err;
+                }
+            }
+
+            console.log('Screen capture started successfully');
+            setupUnifiedAudioProcessing(mediaStream, micStream, audioMode);
         }
 
         console.log('MediaStream obtained:', {
@@ -389,64 +350,152 @@ function setupLinuxMicProcessing(micStream) {
     micAudioProcessor = micProcessor;
 }
 
-function setupLinuxSystemAudioProcessing() {
-    // Setup system audio processing for Linux (from getDisplayMedia)
-    audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
-    audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+function encodeWAV(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
 
-    let audioBuffer = [];
-    const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
-
-    audioProcessor.onaudioprocess = async e => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        audioBuffer.push(...inputData);
-
-        // Process audio in chunks
-        while (audioBuffer.length >= samplesPerChunk) {
-            const chunk = audioBuffer.splice(0, samplesPerChunk);
-            const pcmData16 = convertFloat32ToInt16(chunk);
-            const base64Data = arrayBufferToBase64(pcmData16.buffer);
-
-            await ipcRenderer.invoke('send-audio-content', {
-                data: base64Data,
-                mimeType: 'audio/pcm;rate=24000',
-            });
+    function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
         }
-    };
+    }
 
-    source.connect(audioProcessor);
-    audioProcessor.connect(audioContext.destination);
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+
+    let index = 44;
+    for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        index += 2;
+    }
+    return buffer;
 }
 
-function setupWindowsLoopbackProcessing() {
-    // Setup audio processing for Windows loopback audio only
+function setupUnifiedAudioProcessing(systemStream, micStream, audioMode) {
+    console.log(`Setting up unified audio processing with VAD. Mode: ${audioMode}`);
+
     audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
     audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
+    let isSpeaking = false;
+    let silenceFrames = 0;
     let audioBuffer = [];
-    const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
+
+    // VAD Tuning parameters - optimized for fast real-time interview response
+    const SILENCE_THRESHOLD = 0.012;
+    const MAX_SILENCE_FRAMES = Math.floor(SAMPLE_RATE / BUFFER_SIZE) * 1.1; // ~1.1s fast turn-around when speaker stops
+    const MAX_RECORDING_FRAMES = Math.floor(SAMPLE_RATE / BUFFER_SIZE) * 30.0; // ~30s max
+    let preBuffer = [];
+    const PRE_BUFFER_SAMPLES = Math.floor(SAMPLE_RATE * 0.3); // 300ms pre-speech padding
 
     audioProcessor.onaudioprocess = async e => {
         const inputData = e.inputBuffer.getChannelData(0);
-        audioBuffer.push(...inputData);
 
-        // Process audio in chunks
-        while (audioBuffer.length >= samplesPerChunk) {
-            const chunk = audioBuffer.splice(0, samplesPerChunk);
-            const pcmData16 = convertFloat32ToInt16(chunk);
-            const base64Data = arrayBufferToBase64(pcmData16.buffer);
+        // Calculate RMS energy for VAD
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+            sum += inputData[i] * inputData[i];
+        }
+        const rms = Math.sqrt(sum / inputData.length);
 
-            await ipcRenderer.invoke('send-audio-content', {
-                data: base64Data,
-                mimeType: 'audio/pcm;rate=24000',
-            });
+        if (rms > SILENCE_THRESHOLD) {
+            if (!isSpeaking && preBuffer.length > 0) {
+                // Prepend pre-speech padding so the start of words is never cut
+                audioBuffer.push(...preBuffer);
+                preBuffer = [];
+            }
+            isSpeaking = true;
+            silenceFrames = 0;
+        } else if (isSpeaking) {
+            silenceFrames++;
+        } else {
+            // Keep rolling pre-buffer when silent
+            preBuffer.push(...inputData);
+            if (preBuffer.length > PRE_BUFFER_SAMPLES) {
+                preBuffer.splice(0, preBuffer.length - PRE_BUFFER_SAMPLES);
+            }
+        }
+
+        if (isSpeaking) {
+            audioBuffer.push(...inputData);
+        }
+
+        // Check if we should flush the buffer
+        const shouldFlushSilence = isSpeaking && silenceFrames >= MAX_SILENCE_FRAMES;
+        const shouldFlushMax = audioBuffer.length >= MAX_RECORDING_FRAMES * BUFFER_SIZE;
+
+        if (shouldFlushSilence || shouldFlushMax) {
+            const currentBuffer = [...audioBuffer];
+            audioBuffer = []; // reset
+            isSpeaking = false;
+            silenceFrames = 0;
+
+            if (currentBuffer.length > SAMPLE_RATE * 0.7) {
+                // Minimum 0.7 seconds of actual audio
+                console.log(`Flushing VAD buffer: ${(currentBuffer.length / SAMPLE_RATE).toFixed(1)}s audio`);
+                const wavBuffer = encodeWAV(currentBuffer, SAMPLE_RATE);
+                const base64Data = arrayBufferToBase64(wavBuffer);
+
+                ipcRenderer
+                    .invoke('send-audio-for-transcription', {
+                        data: base64Data,
+                        mimeType: 'audio/wav',
+                    })
+                    .catch(err => console.error('Error sending audio for transcription:', err));
+            }
         }
     };
 
-    source.connect(audioProcessor);
-    audioProcessor.connect(audioContext.destination);
+    let hasSources = false;
+
+    if (audioMode !== 'mic_only' && systemStream && systemStream.getAudioTracks().length > 0) {
+        try {
+            const systemSource = audioContext.createMediaStreamSource(systemStream);
+            const systemGain = audioContext.createGain();
+            systemGain.gain.value = audioMode === 'both' ? 0.7 : 1.0;
+
+            systemSource.connect(systemGain);
+            systemGain.connect(audioProcessor);
+            hasSources = true;
+            console.log('Unified processing: Connected system audio track');
+        } catch (err) {
+            console.error('Error connecting system audio source:', err);
+        }
+    }
+
+    if (audioMode !== 'speaker_only' && micStream && micStream.getAudioTracks().length > 0) {
+        try {
+            const micSource = audioContext.createMediaStreamSource(micStream);
+            const micGain = audioContext.createGain();
+            micGain.gain.value = audioMode === 'both' ? 0.7 : 1.0;
+
+            micSource.connect(micGain);
+            micGain.connect(audioProcessor);
+            hasSources = true;
+            console.log('Unified processing: Connected microphone audio track');
+        } catch (err) {
+            console.error('Error connecting microphone audio source:', err);
+        }
+    }
+
+    if (hasSources) {
+        audioProcessor.connect(audioContext.destination);
+        console.log('Unified audio processing active and connected to destination');
+    } else {
+        console.warn('Unified audio processing: No active audio tracks were connected');
+    }
 }
 
 async function captureScreenshot(imageQuality = 'medium', isManual = false) {
@@ -677,6 +726,11 @@ function stopCapture() {
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
+    }
+
+    if (micStream) {
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
     }
 
     // Stop macOS audio capture if running
@@ -1073,6 +1127,7 @@ const cheatingDaddy = {
     updateCurrentResponse: response => cheatingDaddyApp.updateCurrentResponse(response),
 
     // Core functionality
+    initializeByok,
     initializeGemini,
     initializeCloud,
     initializeLocal,

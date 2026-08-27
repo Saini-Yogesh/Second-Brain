@@ -9,9 +9,9 @@ const DEFAULT_CONFIG = {
     configVersion: CONFIG_VERSION,
     onboarded: false,
     layout: 'normal',
-    geminiLiveModel: 'gemini-2.0-flash-exp',
-    groqModel: 'llama-3.1-8b-instant',
-    groqImageModel: 'llama-3.2-11b-vision-instruct',
+    geminiLiveModel: 'gemini-3.1-flash-live-preview',
+    groqModel: 'openai/gpt-oss-20b',
+    groqImageModel: 'qwen/qwen3.6-27b',
     disableGroqThinking: true,
 };
 
@@ -166,7 +166,23 @@ function initializeStorage() {
 
 function getConfig() {
     const saved = readJsonFile(getConfigPath(), {});
-    return { ...DEFAULT_CONFIG, ...saved };
+    const config = { ...DEFAULT_CONFIG, ...saved };
+
+    // Auto-migrate deprecated models
+    if (config.geminiLiveModel === 'gemini-2.0-flash-exp' || config.geminiLiveModel === 'gemini-2.0-flash') {
+        config.geminiLiveModel = 'gemini-3.1-flash-live-preview';
+    }
+    if (config.groqModel === 'llama-3.1-8b-instant') {
+        config.groqModel = 'openai/gpt-oss-20b';
+    }
+    if (config.groqModel === 'llama-3.3-70b-versatile') {
+        config.groqModel = 'openai/gpt-oss-120b';
+    }
+    if (config.groqImageModel === 'llama-3.2-11b-vision-instruct') {
+        config.groqImageModel = 'qwen/qwen3.6-27b';
+    }
+
+    return config;
 }
 
 function setConfig(config) {
@@ -201,11 +217,39 @@ function setApiKey(apiKey) {
     return setCredentials({ apiKey });
 }
 
+let currentGroqKeyIndex = 0;
+
 function getGroqApiKey() {
-    return getCredentials().groqApiKey || '';
+    const keys = getAllGroqApiKeys();
+    if (keys.length === 0) return '';
+    return keys[currentGroqKeyIndex % keys.length];
+}
+
+function getAllGroqApiKeys() {
+    let keys = getCredentials().groqApiKey;
+    if (!keys) return [];
+    if (typeof keys === 'string') {
+        keys = keys
+            .split(',')
+            .map(k => k.trim())
+            .filter(k => k);
+    }
+    return Array.isArray(keys) ? keys : [];
+}
+
+function cycleGroqApiKey() {
+    const keys = getAllGroqApiKeys();
+    if (keys.length > 1) {
+        currentGroqKeyIndex = (currentGroqKeyIndex + 1) % keys.length;
+        console.log(`Switched to Groq API Key ${currentGroqKeyIndex + 1}/${keys.length}`);
+        return true;
+    }
+    return false;
 }
 
 function setGroqApiKey(groqApiKey) {
+    currentGroqKeyIndex = 0; // reset on new keys
+    // Accept array or string (will be converted in get)
     return setCredentials({ groqApiKey });
 }
 
@@ -511,6 +555,8 @@ module.exports = {
     setApiKey,
     getGroqApiKey,
     setGroqApiKey,
+    cycleGroqApiKey,
+    getAllGroqApiKeys,
 
     // Preferences
     getPreferences,
