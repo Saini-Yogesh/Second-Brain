@@ -384,7 +384,7 @@ export class OnboardingView extends LitElement {
         if (this.currentSlide === 0) {
             return html`
                 <div class="slide">
-                    <div class="slide-title">Cheating Daddy</div>
+                    <div class="slide-title">Second Brain</div>
                     <div class="slide-text">Real-time AI that listens, watches, and helps during interviews, meetings, and exams.</div>
                     <div class="actions">
                         <button

@@ -1267,7 +1267,7 @@ export class MainView extends LitElement {
     render() {
         return html`
             <div class="form-wrapper">
-                <div class="page-title">${html`Cheating Daddy <span class="mode-suffix">AI</span>`}</div>
+                <div class="page-title">${html`Second Brain <span class="mode-suffix">AI</span>`}</div>
                 <div class="page-subtitle">Real-time Interview Copilot powered by Groq</div>
                 ${this._renderByokMode()}
             </div>

@@ -1,8 +1,8 @@
 {
-    "name": "cheating-daddy",
-    "productName": "cheating-daddy",
+    "name": "second-brain",
+    "productName": "Second Brain",
     "version": "0.9.0",
-    "description": "cheating daddy",
+    "description": "Second Brain - Real-time AI interview copilot and meeting assistant",
     "main": "src/index.js",
     "scripts": {
         "start": "electron-forge start",
@@ -12,15 +12,14 @@
         "lint": "echo \"No linting configured\""
     },
     "keywords": [
-        "cheating daddy",
-        "cheating daddy ai",
-        "cheating daddy ai assistant",
-        "cheating daddy ai assistant for interviews",
-        "cheating daddy ai assistant for interviews"
+        "second brain",
+        "self helping tool",
+        "ai assistant",
+        "real-time ai",
+        "interview copilot"
     ],
     "author": {
-        "name": "sohzm",
-        "email": "sohambharambe9@gmail.com"
+        "name": "Yogesh Saini"
     },
     "license": "GPL-3.0",
     "dependencies": {

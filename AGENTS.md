@@ -1,6 +1,6 @@
 # Repo Guidelines
 
-This repository is a fork of [`cheating-daddy`](https://github.com/sohzm/cheating-daddy).
+This repository is **Self-Helping-Tool** (Second Brain).
 It provides an Electron-based real‑time assistant which captures screen and audio
 for contextual AI responses. The code is JavaScript and uses Electron Forge for
 packaging.
@@ -57,10 +57,9 @@ No automated tests yet. When a suite is added, run `npm test` before each
 commit. Until then, at minimum ensure `npm install` and `npm start` work after
 merging upstream changes.
 
-## Merging upstream PRs
+## Merging PRs
 
-Pull requests from <https://github.com/sohzm/cheating-daddy> are commonly
-cherry‑picked here. When merging:
+When merging pull requests:
 
 1. Inspect the diff and keep commit messages short (`feat:` / `fix:` etc.).
 2. After merging, run the application locally to verify it still builds and
