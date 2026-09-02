@@ -1,11 +1,8 @@
-<!-- <img width="1299" height="424" alt="cd (1)" src="https://github.com/user-attachments/assets/b25fff4d-043d-4f38-9985-f832ae0d0f6e" /> -->
+# Second Brain
 
----
+**Second Brain** is a high-performance, real-time AI interview copilot and meeting assistant that provides discreet contextual answers, working code, and live guidance using screen capture and ultra-fast audio transcription.
 
-> [!NOTE]  
-> Recommended for modern macOS and Windows operating systems.
-
-A high-performance, real-time AI interview copilot and meeting assistant that provides discreet contextual answers, working code, and live guidance using screen capture and ultra-fast audio transcription.
+<img src="src/assets/Second-brain-banner.png" alt="Second Brain Banner" width="100%" />
 
 ## Features
 
@@ -22,8 +19,8 @@ A high-performance, real-time AI interview copilot and meeting assistant that pr
 1. **Clone the repository**:
 
     ```bash
-    git clone https://github.com/your-username/cheating-daddy.git
-    cd cheating-daddy
+    git clone https://github.com/yogesh-saini/Self-Helping-Tool.git
+    cd Self-Helping-Tool
     ```
 
 2. **Install Dependencies**:
@@ -67,3 +64,8 @@ A high-performance, real-time AI interview copilot and meeting assistant that pr
 - Node.js 18+
 - Groq API Key (Free tier supported)
 - Screen recording and Microphone permissions
+
+## Author & Maintainer
+
+- **Yogesh Saini**
+- Repository: [Self-Helping-Tool](https://github.com/yogesh-saini/Self-Helping-Tool)
