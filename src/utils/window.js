@@ -11,6 +11,10 @@ function createWindow(sendToRenderer, geminiSessionRef) {
     let windowWidth = DEFAULT_MAIN_WINDOW_SIZE.width;
     let windowHeight = DEFAULT_MAIN_WINDOW_SIZE.height;
 
+    const iconPath = process.platform === 'win32'
+        ? path.join(__dirname, '../assets/logo.ico')
+        : path.join(__dirname, '../assets/logo.png');
+
     const mainWindow = new BrowserWindow({
         width: windowWidth,
         height: windowHeight,
@@ -21,6 +25,7 @@ function createWindow(sendToRenderer, geminiSessionRef) {
         transparent: true,
         hasShadow: false,
         alwaysOnTop: process.platform === 'win32',
+        icon: iconPath,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false, // TODO: change to true
