@@ -48,11 +48,30 @@ function getConfigDir() {
     let configDir;
 
     if (platform === 'win32') {
-        configDir = path.join(os.homedir(), 'AppData', 'Roaming', 'cheating-daddy-config');
+        configDir = path.join(os.homedir(), 'AppData', 'Roaming', 'second-brain-config');
     } else if (platform === 'darwin') {
-        configDir = path.join(os.homedir(), 'Library', 'Application Support', 'cheating-daddy-config');
+        configDir = path.join(os.homedir(), 'Library', 'Application Support', 'second-brain-config');
     } else {
-        configDir = path.join(os.homedir(), '.config', 'cheating-daddy-config');
+        configDir = path.join(os.homedir(), '.config', 'second-brain-config');
+    }
+
+    // Legacy fallback migration
+    if (!fs.existsSync(configDir)) {
+        let legacyDir;
+        if (platform === 'win32') {
+            legacyDir = path.join(os.homedir(), 'AppData', 'Roaming', 'cheating-daddy-config');
+        } else if (platform === 'darwin') {
+            legacyDir = path.join(os.homedir(), 'Library', 'Application Support', 'cheating-daddy-config');
+        } else {
+            legacyDir = path.join(os.homedir(), '.config', 'cheating-daddy-config');
+        }
+        if (fs.existsSync(legacyDir)) {
+            try {
+                fs.renameSync(legacyDir, configDir);
+            } catch (e) {
+                console.error('Error migrating legacy config dir:', e);
+            }
+        }
     }
 
     return configDir;

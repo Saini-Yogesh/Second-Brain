@@ -424,7 +424,7 @@ export class CheatingDaddyApp extends LitElement {
             this._localVersion = await cheatingDaddy.getVersion();
             this.requestUpdate();
 
-            const res = await fetch('https://raw.githubusercontent.com/sohzm/cheating-daddy/refs/heads/master/package.json');
+            const res = await fetch('https://raw.githubusercontent.com/Saini-Yogesh/Second-Brain/refs/heads/main/package.json');
             if (!res.ok) return;
             const remote = await res.json();
             const remoteVersion = remote.version;
@@ -654,7 +654,7 @@ export class CheatingDaddyApp extends LitElement {
     async handleAPIKeyHelp() {
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
-            await ipcRenderer.invoke('open-external', 'https://cheatingdaddy.com/help/api-key');
+            await ipcRenderer.invoke('open-external', 'https://console.groq.com/keys');
         }
     }
 
@@ -874,7 +874,7 @@ export class CheatingDaddyApp extends LitElement {
         return html`
             <div class="sidebar ${this._isLiveMode() ? 'hidden' : ''}">
                 <div class="sidebar-brand">
-                    <h1>Cheating Daddy</h1>
+                    <h1>Second Brain</h1>
                 </div>
                 <nav class="sidebar-nav">
                     ${items.map(
@@ -893,7 +893,7 @@ export class CheatingDaddyApp extends LitElement {
                     ${
                         this._updateAvailable
                             ? html`
-                                  <button class="update-btn" @click=${() => this.handleExternalLinkClick('https://cheatingdaddy.com/download')}>
+                                  <button class="update-btn" @click=${() => this.handleExternalLinkClick('https://github.com/Saini-Yogesh/Second-Brain')}>
                                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                                           <path
                                               fill="none"
