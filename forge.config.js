@@ -33,6 +33,7 @@ module.exports = {
                 name: 'second-brain',
                 productName: 'Second Brain',
                 shortcutName: 'Second Brain',
+                setupIcon: 'src/assets/logo.ico',
                 createDesktopShortcut: true,
                 createStartMenuShortcut: true,
             },
