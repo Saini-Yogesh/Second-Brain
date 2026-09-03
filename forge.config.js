@@ -49,6 +49,13 @@ module.exports = {
         extraResource: ['./src/assets/SystemAudioDump'],
         name: 'Second Brain',
         icon: 'src/assets/logo',
+        ignore: [
+            /\.exe$/,
+            /\.nupkg$/,
+            /\.zip$/,
+            /Second-brain-banner\.png$/,
+            /second-brain-logo\.png$/,
+        ],
     },
     rebuildConfig: {},
     makers,
