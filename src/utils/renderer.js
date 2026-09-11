@@ -273,15 +273,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                         width: { ideal: 1920 },
                         height: { ideal: 1080 },
                     },
-                    audio: requestSystemAudio
-                        ? {
-                              sampleRate: SAMPLE_RATE,
-                              channelCount: 1,
-                              echoCancellation: false,
-                              noiseSuppression: false,
-                              autoGainControl: false,
-                          }
-                        : false,
+                    audio: requestSystemAudio ? true : false,
                 });
             } catch (err) {
                 if (requestSystemAudio) {

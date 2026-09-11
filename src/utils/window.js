@@ -11,9 +11,7 @@ function createWindow(sendToRenderer, geminiSessionRef) {
     let windowWidth = DEFAULT_MAIN_WINDOW_SIZE.width;
     let windowHeight = DEFAULT_MAIN_WINDOW_SIZE.height;
 
-    const iconPath = process.platform === 'win32'
-        ? path.join(__dirname, '../assets/logo.ico')
-        : path.join(__dirname, '../assets/logo.png');
+    const iconPath = process.platform === 'win32' ? path.join(__dirname, '../assets/logo.ico') : path.join(__dirname, '../assets/logo.png');
 
     const mainWindow = new BrowserWindow({
         width: windowWidth,
@@ -38,14 +36,11 @@ function createWindow(sendToRenderer, geminiSessionRef) {
     });
 
     const { session, desktopCapturer } = require('electron');
-    session.defaultSession.setDisplayMediaRequestHandler(
-        (request, callback) => {
-            desktopCapturer.getSources({ types: ['screen'] }).then(sources => {
-                callback({ video: sources[0], audio: 'loopback' });
-            });
-        },
-        { useSystemPicker: true }
-    );
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+        desktopCapturer.getSources({ types: ['screen'] }).then(sources => {
+            callback({ video: sources[0], audio: 'loopback' });
+        });
+    });
 
     mainWindow.setContentProtection(true);
     if (process.platform === 'win32') {
