@@ -50,6 +50,8 @@ module.exports = {
         name: 'Second Brain',
         icon: 'src/assets/logo',
         ignore: [
+            /^\/out/,
+            /^\/\.git/,
             /\.exe$/,
             /\.nupkg$/,
             /\.zip$/,
